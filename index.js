@@ -11,11 +11,9 @@ const API =
   "https://bqrapnlqqtjedjyhlfci.supabase.co/functions/v1/submit-solution";
 
 const API_KEY =
-  "YOUR_API_KEY";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxcmFwbmxxcXRqZWRqeWhsZmNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNzUyNjQsImV4cCI6MjA5Mzg1MTI2NH0.mf0fz6kAnK0yeAXrb-XT6yikbdRmeAq5jsikVPPhaFE";
 
-const WALLET =
-  "0xEB9E8A1114a971d452416D799dBa631629E8c85b";
-
+const WALLET = "0xEB9E8A1114a971d452416D799dBa631629E8c85b";
 const AGENT = "Pen";
 
 const headers = {
@@ -28,24 +26,19 @@ function sleep(ms) {
 }
 
 function clean(str) {
-  return String(str || "")
-    .trim()
-    .replace(/\s+/g, " ");
+  return String(str || "").trim().replace(/\s+/g, " ");
 }
 
 function normalize(answer) {
-  return clean(answer)
-    .replace(/^0x/i, "")
-    .trim();
+  return clean(answer).replace(/^0x/i, "").trim();
 }
 
 function unique(arr) {
-  return [...new Set(arr.filter(Boolean))];
+  return [...new Set(arr.filter(Boolean).map(normalize))];
 }
 
 function reverseBitsToHex(prompt) {
   const match = prompt.match(/0b[01]+/i);
-
   if (!match) return null;
 
   const bits = match[0].replace(/0b/i, "");
@@ -57,110 +50,36 @@ function reverseBitsToHex(prompt) {
 function ruleAnswers(prompt) {
   const p = prompt.toLowerCase();
 
-  // reverse bits
   if (p.includes("reverse the bits")) {
     const hex = reverseBitsToHex(prompt);
-
-    if (hex) {
-      return [hex, "0x" + hex];
-    }
+    return hex ? [hex, "0x" + hex] : [];
   }
 
-  // Grover
-  if (p.includes("grover")) {
-    return [
-      "sqrt(n)",
-      "sqrt n",
-      "square root of n",
-    ];
+  if (p.includes("kyber") && p.includes("lattice")) {
+    return ["mlwe", "module-lwe", "module lwe", "module learning with errors"];
   }
 
-  // Shor
-  if (p.includes("shor")) {
-    return [
-      "rsa",
-    ];
+  if (p.includes("ethereum") && p.includes("genesis") && p.includes("transactions")) {
+    return ["0", "zero"];
   }
 
-  // Bitcoin max supply
-  if (
-    p.includes("max supply") &&
-    p.includes("bitcoin")
-  ) {
-    return [
-      "21000000",
-      "21 million",
-    ];
+  if (p.includes("bitcoin") && p.includes("block headers")) {
+    return ["sha256", "sha-256", "double sha256", "double sha-256"];
   }
 
-  // Bitcoin block header hash
-  if (
-    p.includes("block headers") &&
-    p.includes("bitcoin")
-  ) {
-    return [
-      "sha256",
-      "sha-256",
-      "double sha256",
-      "double sha-256",
-    ];
+  if (p.includes("zk-snark") || p.includes("zk snark")) {
+    return ["zero knowledge", "zero-knowledge", "zk"];
   }
 
-  // zk-snark
-  if (
-    p.includes("zk-snark") ||
-    p.includes("zk snark")
-  ) {
-    return [
-      "zero knowledge",
-      "zero-knowledge",
-      "zk",
-    ];
-  }
+  if (p.includes("shor")) return ["rsa"];
+  if (p.includes("grover")) return ["sqrt(n)", "sqrt n", "square root n"];
+  if (p.includes("decimal 255")) return ["ff", "0xff"];
+  if (p.includes("max supply") && p.includes("bitcoin")) return ["21000000", "21 million"];
+  if (p.includes("bitcoin whitepaper")) return ["2008"];
+  if (p.includes("sha-256") && p.includes("empty string")) return ["e3b0c4"];
 
-  // Ethereum genesis
-  if (
-    p.includes("ethereum") &&
-    p.includes("genesis") &&
-    p.includes("transactions")
-  ) {
-    return [
-      "0",
-      "zero",
-    ];
-  }
-
-  // Kyber
-  if (
-    p.includes("kyber") &&
-    p.includes("lattice")
-  ) {
-    return [
-      "mlwe",
-      "module-lwe",
-      "module lwe",
-      "module learning with errors",
-    ];
-  }
-
-  // 255 => ff
-  if (
-    p.includes("decimal 255")
-  ) {
-    return [
-      "ff",
-      "0xff",
-    ];
-  }
-
-  // keccak
-  if (
-    p.includes("keccak256") &&
-    p.includes('"abc"')
-  ) {
-    return [
-      "4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45",
-    ];
+  if (p.includes("post-quantum signature") && p.includes("nist")) {
+    return ["dilithium", "crystals-dilithium", "ml-dsa"];
   }
 
   return [];
@@ -168,92 +87,56 @@ function ruleAnswers(prompt) {
 
 async function askAI(prompt) {
   try {
-    const completion =
-      await groq.chat.completions.create({
-        model: "llama-3.1-8b-instant",
-        temperature: 0,
-        max_tokens: 50,
-        messages: [
-          {
-            role: "system",
-            content:
-              "Reply ONLY the final answer. No explanation.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-      });
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.1-8b-instant",
+      temperature: 0,
+      max_tokens: 50,
+      messages: [
+        {
+          role: "system",
+          content: "Reply ONLY the final answer. No explanation. Keep it short.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    });
 
-    return clean(
-      completion.choices?.[0]?.message?.content
-    );
+    return clean(completion.choices?.[0]?.message?.content || "");
   } catch (e) {
     console.log("AI ERROR:", e.message);
     return "";
   }
 }
 
-function buildCandidates(prompt, ai) {
+function buildAICandidates(prompt, ai) {
   const p = prompt.toLowerCase();
-
+  const al = clean(ai).toLowerCase();
   const list = [];
 
   if (ai) {
-    list.push(ai);
-    list.push(ai.toLowerCase());
-
-    if (ai.includes(":")) {
-      list.push(ai.split(":").pop().trim());
-    }
+    list.push(ai, al);
+    if (ai.includes(":")) list.push(ai.split(":").pop().trim());
   }
 
-  list.push(...ruleAnswers(prompt));
-
-  // generic variants
-
-  if (
-    ai.toLowerCase().includes("double sha")
-  ) {
-    list.push(
-      "sha256",
-      "sha-256",
-      "double sha256",
-      "double sha-256"
-    );
+  if (al.includes("double sha")) list.push("sha256", "sha-256", "double sha256");
+  if (al.includes("zero knowledge") || al.includes("zero-knowledge")) {
+    list.push("zero knowledge", "zero-knowledge", "zk");
   }
+  if (al.includes("rsa")) list.push("rsa");
+  if (al.includes("sqrt")) list.push("sqrt(n)", "sqrt n");
+  if (al.includes("21 million")) list.push("21000000");
 
-  if (
-    ai.toLowerCase().includes("zero")
-  ) {
-    list.push(
-      "0",
-      "zero"
-    );
-  }
+  if (p.includes("kyber")) list.push("mlwe", "module-lwe", "module lwe");
+  if (p.includes("ethereum") && p.includes("genesis")) list.push("0", "zero");
 
-  if (
-    p.includes("kyber")
-  ) {
-    list.push(
-      "mlwe",
-      "module-lwe"
-    );
-  }
-
-  return unique(
-    list.map(normalize)
-  );
+  return unique(list);
 }
 
 async function getPuzzle() {
-  const res = await axios.get(
-    `${API}?eth=${WALLET}`,
-    { headers }
-  );
-
-  return res.data?.puzzle;
+  const res = await axios.get(`${API}?eth=${WALLET}`, { headers });
+  return res.data?.puzzle || null;
 }
 
 async function submitAnswer(puzzle, answer) {
@@ -273,58 +156,51 @@ async function submitAnswer(puzzle, answer) {
   );
 
   console.log("Result:", res.data);
-
   return res.data;
 }
 
-async function solvePuzzle(puzzle) {
-  const aiAnswer =
-    await askAI(puzzle.prompt);
+async function tryAnswers(puzzle, answers, label) {
+  const candidates = unique(answers);
 
-  console.log("AI Answer:", aiAnswer);
+  console.log(`${label} Candidates:`, candidates);
 
-  const candidates =
-    buildCandidates(
-      puzzle.prompt,
-      aiAnswer
-    );
-
-  console.log(
-    "Candidates:",
-    candidates
-  );
-
-  for (const candidate of candidates) {
+  for (const ans of candidates) {
     try {
-      const result =
-        await submitAnswer(
-          puzzle,
-          candidate
-        );
+      const result = await submitAnswer(puzzle, ans);
 
-      if (result.correct) {
-        console.log(
-          "SUCCESS:",
-          candidate
-        );
-
+      if (result?.correct === true) {
+        console.log(`SUCCESS ${label}:`, ans);
         return true;
       }
 
       await sleep(1500);
     } catch (e) {
-      console.log(
-        "Submit Error:",
-        e.response?.data || e.message
-      );
-
+      console.log(`${label} Submit Error:`, e.response?.data || e.message);
       await sleep(3000);
     }
   }
 
-  console.log("All candidates failed.");
-
   return false;
+}
+
+async function solvePuzzle(puzzle) {
+  const ruleList = ruleAnswers(puzzle.prompt);
+
+  if (ruleList.length > 0) {
+    const ok = await tryAnswers(puzzle, ruleList, "RULE");
+    if (ok) return true;
+  }
+
+  console.log("No rule worked. Asking AI...");
+
+  const aiAnswer = await askAI(puzzle.prompt);
+  console.log("AI Answer:", aiAnswer);
+
+  const aiCandidates = buildAICandidates(puzzle.prompt, aiAnswer);
+  const ok = await tryAnswers(puzzle, aiCandidates, "AI");
+
+  if (!ok) console.log("All candidates failed.");
+  return ok;
 }
 
 async function main() {
@@ -336,42 +212,23 @@ async function main() {
     try {
       console.log("\nFetching puzzle...");
 
-      const puzzle =
-        await getPuzzle();
+      const puzzle = await getPuzzle();
 
       if (!puzzle) {
-        console.log(
-          "No puzzle found"
-        );
-
+        console.log("No puzzle found");
         await sleep(10000);
         continue;
       }
 
-      console.log(
-        "Puzzle ID:",
-        puzzle.id
-      );
-
-      console.log(
-        "Category:",
-        puzzle.category
-      );
-
-      console.log(
-        "Prompt:",
-        puzzle.prompt
-      );
+      console.log("Puzzle ID:", puzzle.id);
+      console.log("Category:", puzzle.category);
+      console.log("Prompt:", puzzle.prompt);
 
       await solvePuzzle(puzzle);
 
       await sleep(5000);
     } catch (e) {
-      console.log(
-        "MAIN ERROR:",
-        e.response?.data || e.message
-      );
-
+      console.log("MAIN ERROR:", e.response?.data || e.message);
       await sleep(10000);
     }
   }
