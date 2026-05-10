@@ -1,9 +1,13 @@
 import axios from "axios";
 import { keccak256, toUtf8Bytes } from "ethers";
 
-const API = "https://bqrapnlqqtjedjyhlfci.supabase.co/functions/v1/submit-solution";
+axios.defaults.timeout = 120000;
 
-const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxcmFwbmxxcXRqZWRqeWhsZmNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNzUyNjQsImV4cCI6MjA5Mzg1MTI2NH0.mf0fz6kAnK0yeAXrb-XT6yikbdRmeAq5jsikVPPhaFE";
+const API =
+  "https://bqrapnlqqtjedjyhlfci.supabase.co/functions/v1/submit-solution";
+
+const API_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxcmFwbmxxcXRqZWRqeWhsZmNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNzUyNjQsImV4cCI6MjA5Mzg1MTI2NH0.mf0fz6kAnK0yeAXrb-XT6yikbdRmeAq5jsikVPPhaFE";
 
 const WALLET = "0xEB9E8A1114a971d452416D799dBa631629E8c85b";
 const AGENT = "Pen";
@@ -41,6 +45,7 @@ function solve(prompt = "") {
   }
 
   const match = prompt.match(/keccak256\(["'`](.*?)["'`]\)/i);
+
   if (match) {
     const text = match[1];
     const hash = keccak256(toUtf8Bytes(text)).replace("0x", "");
@@ -53,7 +58,7 @@ function solve(prompt = "") {
 async function getPuzzle() {
   const res = await axios.get(`${API}?eth=${WALLET}`, {
     headers,
-    timeout: 30000,
+    timeout: 120000,
   });
 
   return res.data?.puzzle || null;
@@ -69,7 +74,7 @@ async function submitSolution(puzzleId, answer) {
 
   const res = await axios.post(API, payload, {
     headers,
-    timeout: 30000,
+    timeout: 120000,
   });
 
   return res.data;
@@ -88,7 +93,7 @@ async function main() {
 
       if (!puzzle) {
         console.log("No puzzle. Waiting...");
-        await sleep(10000);
+        await sleep(15000);
         continue;
       }
 
@@ -110,10 +115,11 @@ async function main() {
 
       console.log("Result:", result);
 
-      await sleep(3000);
+      await sleep(5000);
     } catch (err) {
       console.log("ERROR:", err.response?.data || err.message);
-      await sleep(5000);
+      console.log("Retrying in 10 seconds...");
+      await sleep(10000);
     }
   }
 }
