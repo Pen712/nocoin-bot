@@ -79,78 +79,174 @@ function ruleAnswers(prompt) {
   const p = prompt.toLowerCase();
   const out = [];
 
+  // Merkle proof
   const merkle = p.match(/merkle proof of depth\s+(\d+)/i);
-  if (merkle) out.push(merkle[1]);
 
-  out.push(...keccakAnswer(prompt));
-
-  if (p.includes("reverse the bits")) {
-    const h = reverseBitsToHex(prompt);
-    if (h) out.push(h, "0x" + h);
+  if (merkle) {
+    out.push(merkle[1]);
   }
 
-  if (p.includes("2^") && p.includes("hex")) {
-    const h = powerMinusOneHex(prompt);
-    if (h) out.push(h, "0x" + h);
+  // 2^n - 1 => hex
+  const powerHex = p.match(/2\^(\d+)\s*-\s*1.*hex/i);
+
+  if (powerHex) {
+    const n = BigInt(powerHex[1]);
+    out.push(((1n << n) - 1n).toString(16));
   }
 
-  if (p.includes("decimal") && p.includes("hex")) {
-    const h = decimalToHex(prompt);
-    if (h) out.push(h, "0x" + h);
+  // reverse bits
+  const bin = p.match(/reverse the bits.*0b([01]+)/i);
+
+  if (bin) {
+    const reversed = bin[1]
+      .split("")
+      .reverse()
+      .join("");
+
+    out.push(
+      parseInt(reversed, 2).toString(16)
+    );
   }
 
-  if (p.includes("schnorr")) {
-    if (p.includes("aggregate") || p.includes("operation")) {
-      out.push("addition", "scalar addition", "add");
-    }
-    out.push("schnorr");
+  // BIP
+  if (
+    p.includes("hierarchical deterministic wallets")
+  ) {
+    out.push(
+      "bip39",
+      "bip-39",
+      "bip 39"
+    );
   }
 
-  if (p.includes("kyber") && p.includes("lattice")) {
-    out.push("mlwe", "module-lwe", "module lwe", "module learning with errors");
+  if (
+    p.includes("mnemonic")
+  ) {
+    out.push(
+      "bip39",
+      "bip-39",
+      "bip 39"
+    );
   }
 
-  if (p.includes("dilithium")) {
-    out.push("module-lwe", "module lattice", "mlwe", "lattice");
+  if (
+    p.includes("hierarchical deterministic") &&
+    !p.includes("wallets")
+  ) {
+    out.push(
+      "bip32",
+      "bip-32",
+      "bip 32"
+    );
   }
 
-  if (p.includes("ethereum") && p.includes("genesis") && p.includes("transactions")) {
+  // Schnorr
+  if (
+    p.includes("schnorr") &&
+    p.includes("aggregate")
+  ) {
+    out.push(
+      "addition",
+      "scalar addition",
+      "add"
+    );
+  }
+
+  // Kyber
+  if (
+    p.includes("kyber") &&
+    p.includes("lattice")
+  ) {
+    out.push(
+      "mlwe",
+      "module-lwe",
+      "module lwe",
+      "module learning with errors"
+    );
+  }
+
+  // Ethereum genesis
+  if (
+    p.includes("ethereum") &&
+    p.includes("genesis") &&
+    p.includes("transactions")
+  ) {
     out.push("0", "zero");
   }
 
-  if (p.includes("bitcoin") && p.includes("block headers")) {
-    out.push("sha256", "sha-256", "double sha256", "double sha-256");
+  // Bitcoin block headers
+  if (
+    p.includes("bitcoin") &&
+    p.includes("block headers")
+  ) {
+    out.push(
+      "sha256",
+      "sha-256",
+      "double sha256",
+      "double sha-256"
+    );
   }
 
-  if (p.includes("zk-snark") || p.includes("zk snark")) {
-    out.push("zero knowledge", "zero-knowledge", "zk");
+  // zk
+  if (
+    p.includes("zk-snark") ||
+    p.includes("zk snark")
+  ) {
+    out.push(
+      "zero knowledge",
+      "zero-knowledge",
+      "zk"
+    );
   }
 
-  if (p.includes("shor")) out.push("rsa");
-  if (p.includes("grover")) out.push("sqrt(n)", "sqrt n", "square root n");
-
-  if (p.includes("max supply") && p.includes("bitcoin")) {
-    out.push("21000000", "21 million");
+  // Shor
+  if (p.includes("shor")) {
+    out.push("rsa");
   }
 
-  if (p.includes("bitcoin whitepaper")) out.push("2008");
-  if (p.includes("bitcoin") && p.includes("launch")) out.push("2009");
-
-  if (p.includes("sha-256") && p.includes("empty string")) {
-    out.push("e3b0c4", "e3b0c44298fc1c149afbf4c8996fb924");
+  // Grover
+  if (p.includes("grover")) {
+    out.push(
+      "sqrt(n)",
+      "sqrt n"
+    );
   }
 
-  if (p.includes("post-quantum signature") && p.includes("nist")) {
-    out.push("dilithium", "crystals-dilithium", "ml-dsa");
+  // ETH units
+  if (
+    p.includes("smallest unit") &&
+    p.includes("eth")
+  ) {
+    out.push("wei");
   }
 
-  if (p.includes("chain id") && p.includes("base")) out.push("8453");
-  if (p.includes("smallest unit") && p.includes("eth")) out.push("wei");
-  if (p.includes("gas") && p.includes("unit")) out.push("gwei", "wei");
+  // Base chain id
+  if (
+    p.includes("chain id") &&
+    p.includes("base")
+  ) {
+    out.push("8453");
+  }
 
-  return unique(out);
+  // Bitcoin
+  if (
+    p.includes("max supply") &&
+    p.includes("bitcoin")
+  ) {
+    out.push(
+      "21000000",
+      "21 million"
+    );
+  }
+
+  if (
+    p.includes("bitcoin whitepaper")
+  ) {
+    out.push("2008");
+  }
+
+  return [...new Set(out)];
 }
-
 async function askAI(prompt) {
   if (!process.env.GROQ_API_KEY) return "";
 
