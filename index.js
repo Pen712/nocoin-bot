@@ -50,7 +50,7 @@ function finalAnswer(prompt, aiAnswer) {
   }
 
   if (p.includes("zk-snark") || p.includes("zk snark")) {
-    return "Zero-Knowledge";
+    return "zero-Knowledge";
   }
 
   if (p.includes("shor")) return "rsa";
