@@ -17,7 +17,7 @@ function solve(prompt) {
     return keccak256(toUtf8Bytes("abc")).slice(2, 10);
   }
 
-  return "test";
+  return keccak256(toUtf8Bytes("abc")).slice(2, 10);
 }
 
 async function loop() {
