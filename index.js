@@ -133,8 +133,23 @@ async function solve(q) {
 }
 
 async function getPuzzle() {
-  console.log("No real puzzle API connected yet.");
-  return null;
+  try {
+    const res = await fetch("LINK_API_PUZZLE");
+
+    const text = await res.text();
+
+    try {
+      const data = JSON.parse(text);
+      return data;
+    } catch {
+      console.log("API không trả JSON:");
+      console.log(text.slice(0, 200));
+      return null;
+    }
+  } catch (e) {
+    console.log("Puzzle fetch error:", e.message);
+    return null;
+  }
 }
 
 process.on("uncaughtException", (e) => console.log("Uncaught:", e.message));
