@@ -30,7 +30,10 @@ function clean(str) {
 }
 
 function normalize(answer) {
-  return clean(answer).replace(/^0x/i, "").trim();
+  return clean(answer)
+    .replace(/^0x/i, "")
+    .replace(/\s+/g, "")
+    .trim();
 }
 
 function unique(arr) {
@@ -43,8 +46,16 @@ function reverseBitsToHex(prompt) {
 
   const bits = match[0].replace(/0b/i, "");
   const reversed = bits.split("").reverse().join("");
-
   return parseInt(reversed, 2).toString(16);
+}
+
+function powerMinusOneHex(prompt) {
+  const match = prompt.match(/2\^(\d+)\s*-\s*1/i);
+  if (!match) return null;
+
+  const n = BigInt(match[1]);
+  const value = (1n << n) - 1n;
+  return value.toString(16);
 }
 
 function ruleAnswers(prompt) {
@@ -53,6 +64,11 @@ function ruleAnswers(prompt) {
   if (p.includes("reverse the bits")) {
     const hex = reverseBitsToHex(prompt);
     return hex ? [hex, "0x" + hex] : [];
+  }
+
+  if (p.includes("2^") && p.includes("hex")) {
+    const hex = powerMinusOneHex(prompt);
+    if (hex) return [hex, "0x" + hex];
   }
 
   if (p.includes("kyber") && p.includes("lattice")) {
@@ -120,16 +136,27 @@ function buildAICandidates(prompt, ai) {
     if (ai.includes(":")) list.push(ai.split(":").pop().trim());
   }
 
-  if (al.includes("double sha")) list.push("sha256", "sha-256", "double sha256");
+  list.push(...ruleAnswers(prompt));
+
+  if (al.includes("double sha")) {
+    list.push("sha256", "sha-256", "double sha256", "double sha-256");
+  }
+
   if (al.includes("zero knowledge") || al.includes("zero-knowledge")) {
     list.push("zero knowledge", "zero-knowledge", "zk");
   }
+
   if (al.includes("rsa")) list.push("rsa");
   if (al.includes("sqrt")) list.push("sqrt(n)", "sqrt n");
   if (al.includes("21 million")) list.push("21000000");
 
-  if (p.includes("kyber")) list.push("mlwe", "module-lwe", "module lwe");
-  if (p.includes("ethereum") && p.includes("genesis")) list.push("0", "zero");
+  if (p.includes("kyber")) {
+    list.push("mlwe", "module-lwe", "module lwe", "module learning with errors");
+  }
+
+  if (p.includes("ethereum") && p.includes("genesis")) {
+    list.push("0", "zero");
+  }
 
   return unique(list);
 }
