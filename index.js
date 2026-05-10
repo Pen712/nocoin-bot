@@ -134,8 +134,7 @@ async function solve(q) {
 
 async function getPuzzle() {
   try {
-    const res = await fetch("https://abc.com/api/puzzle");
-
+   const res = await fetch("https://nocoin.live/api/puzzle");
     const text = await res.text();
 
     try {
