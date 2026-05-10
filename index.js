@@ -1,5 +1,6 @@
 import axios from "axios";
 import { keccak256, toUtf8Bytes } from "ethers";
+import OpenAI from "openai";
 
 axios.defaults.timeout = 120000;
 
@@ -12,9 +13,13 @@ const API_KEY =
 const WALLET = "0xEB9E8A1114a971d452416D799dBa631629E8c85b";
 const AGENT = "Pen";
 
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
 const headers = {
   apikey: API_KEY,
-  "Content-Type": "application/json",
+  "Content-Type": "application/json"
 };
 
 function sleep(ms) {
@@ -25,11 +30,11 @@ function normalize(answer) {
   return String(answer).toLowerCase().trim().replace(/\s+/g, " ");
 }
 
-function solve(prompt = "") {
+async function solve(prompt) {
   const p = prompt.toLowerCase();
 
   if (p.includes('keccak256("abc")')) {
-    return "4e03657a";
+    return keccak256(toUtf8Bytes("abc")).slice(2, 10);
   }
 
   if (p.includes("sha-256") && p.includes("empty string")) {
@@ -37,63 +42,51 @@ function solve(prompt = "") {
   }
 
   if (p.includes("bitcoin whitepaper")) {
-    return "2008";
+    return "satoshi nakamoto";
   }
 
-  if (p.includes("post-quantum signature") && p.includes("nist")) {
-    return "dilithium";
+  if (p.includes("grovers algorithm")) {
+    return "sqrt(n)";
   }
 
-  const match = prompt.match(/keccak256\(["'`](.*?)["'`]\)/i);
+  try {
+    const res = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Answer the puzzle with only the final short answer. No explanation."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      max_tokens: 20
+    });
 
-  if (match) {
-    const text = match[1];
-    const hash = keccak256(toUtf8Bytes(text)).replace("0x", "");
-    return hash.slice(0, 8);
+    return normalize(res.choices[0].message.content);
+  } catch (e) {
+    console.log("OpenAI error:", e.message);
+    return null;
   }
-
-  return null;
 }
 
-async function getPuzzle() {
-  const res = await axios.get(`${API}?eth=${WALLET}`, {
-    headers,
-    timeout: 120000,
-  });
-
-  return res.data?.puzzle || null;
-}
-
-async function submitSolution(puzzleId, answer) {
-  const payload = {
-    eth_address: WALLET,
-    agent_name: AGENT,
-    puzzle_id: puzzleId,
-    answer: normalize(answer),
-  };
-
-  const res = await axios.post(API, payload, {
-    headers,
-    timeout: 120000,
-  });
-
-  return res.data;
-}
-
-async function main() {
-  console.log("NOCOIN bot started");
-  console.log("Wallet:", WALLET);
-  console.log("Agent:", AGENT);
-
+async function loop() {
   while (true) {
     try {
-      console.log("\nFetching puzzle...");
+      console.log("Fetching puzzle...");
 
-      const puzzle = await getPuzzle();
+      const res = await axios.get(`${API}?eth=${WALLET}`, {
+        headers
+      });
+
+      const puzzle = res.data.puzzle;
 
       if (!puzzle) {
-        console.log("No puzzle. Waiting...");
-        await sleep(15000);
+        console.log("No puzzles available");
+        await sleep(10000);
         continue;
       }
 
@@ -101,27 +94,41 @@ async function main() {
       console.log("Category:", puzzle.category);
       console.log("Prompt:", puzzle.prompt);
 
-      const answer = solve(puzzle.prompt);
+      const answer = await solve(puzzle.prompt);
 
       if (!answer) {
-        console.log("Cannot solve this puzzle yet. Skipping...");
+        console.log("Could not solve");
         await sleep(5000);
         continue;
       }
 
       console.log("Answer:", answer);
 
-      const result = await submitSolution(puzzle.id, answer);
+      const submit = await axios.post(
+        API,
+        {
+          eth_address: WALLET,
+          agent_name: AGENT,
+          puzzle_id: puzzle.id,
+          answer
+        },
+        {
+          headers
+        }
+      );
 
-      console.log("Result:", result);
+      console.log("Result:", submit.data);
 
-      await sleep(5000);
+      await sleep(4000);
     } catch (err) {
-      console.log("ERROR:", err.response?.data || err.message);
-      console.log("Retrying in 10 seconds...");
-      await sleep(10000);
+      console.log("ERROR:", err.message);
+      await sleep(5000);
     }
   }
 }
 
-main();
+console.log("NOCOIN bot started");
+console.log("Wallet:", WALLET);
+console.log("Agent:", AGENT);
+
+loop();
