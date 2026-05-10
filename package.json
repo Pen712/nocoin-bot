@@ -1,7 +1,6 @@
 {
   "name": "nocoin-bot",
   "version": "1.0.0",
-  "description": "NoCoin AI mining bot",
   "type": "module",
   "main": "index.js",
   "scripts": {
