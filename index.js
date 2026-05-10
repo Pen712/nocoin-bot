@@ -134,19 +134,19 @@ async function solve(q) {
 
 async function getPuzzle() {
   try {
-   const res = await fetch("https://nocoin.live/api/puzzle");
+    const res = await fetch("https://nocoin.live/api/puzzle");
+
     const text = await res.text();
 
     try {
-      const data = JSON.parse(text);
-      return data;
+      return JSON.parse(text);
     } catch {
-      console.log("API không trả JSON:");
+      console.log("API trả HTML hoặc text:");
       console.log(text.slice(0, 200));
       return null;
     }
   } catch (e) {
-    console.log("Puzzle fetch error:", e.message);
+    console.log("Fetch error:", e.message);
     return null;
   }
 }
