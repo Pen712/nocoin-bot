@@ -16,19 +16,14 @@ const gemini = process.env.GEMINI_API_KEY
   ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
   : null;
 
+const LOOP_DELAY = 10000;
+
 function clean(x) {
   return String(x || "").trim().replace(/\s+/g, " ");
 }
 
 function unique(arr) {
   return [...new Set(arr.filter(Boolean).map(clean))];
-}
-
-function reverseBitsToHex(prompt) {
-  const m = prompt.match(/0b[01]+/i);
-  if (!m) return null;
-  const bits = m[0].replace(/0b/i, "");
-  return parseInt(bits.split("").reverse().join(""), 2).toString(16);
 }
 
 function ruleAnswers(prompt) {
@@ -44,14 +39,17 @@ function ruleAnswers(prompt) {
   const decimalHex = p.match(/decimal\s+(\d+)/i);
   if (p.includes("hex") && decimalHex) out.push(BigInt(decimalHex[1]).toString(16));
 
+  const bin = p.match(/reverse the bits.*0b([01]+)/i);
+  if (bin) {
+    const reversed = bin[1].split("").reverse().join("");
+    out.push(parseInt(reversed, 2).toString(16));
+  }
+
   const keccak = prompt.match(/keccak256\(["'`](.*?)["'`]\)/i);
   if (keccak) {
     const h = keccak256(toUtf8Bytes(keccak[1])).replace(/^0x/i, "");
     out.push(h, h.slice(0, 8));
   }
-
-  const rev = reverseBitsToHex(prompt);
-  if (p.includes("reverse the bits") && rev) out.push(rev);
 
   if (p.includes("hierarchical deterministic wallets")) out.push("bip32");
   if (p.includes("mnemonic")) out.push("bip39");
@@ -59,7 +57,7 @@ function ruleAnswers(prompt) {
   if (p.includes("kyber") && p.includes("lattice")) out.push("mlwe", "module-lwe");
   if (p.includes("ethereum") && p.includes("genesis") && p.includes("transactions")) out.push("0");
   if (p.includes("bitcoin") && p.includes("block headers")) out.push("sha256", "double sha256");
-  if (p.includes("zk-snark") || p.includes("zk snark")) out.push("zero knowledge");
+  if (p.includes("zk-snark") || p.includes("zk snark")) out.push("zero knowledge", "zk");
   if (p.includes("shor")) out.push("rsa");
   if (p.includes("grover")) out.push("sqrt(n)");
   if (p.includes("smallest unit") && p.includes("eth")) out.push("wei");
@@ -134,50 +132,30 @@ async function solve(q) {
   return [];
 }
 
-console.log("Crypto solver online.");
-console.log("Railway sẽ luôn Active.");
-
-const LOOP_DELAY = 5000;
-
-process.on("uncaughtException", (e) => {
-  console.log("Uncaught:", e.message);
-});
-
-process.on("unhandledRejection", (e) => {
-  console.log("Unhandled:", e.message);
-});
 async function getPuzzle() {
-  try {
-    const res = await fetch("https://nocoin.live/play");
-    const text = await res.text();
-
-    console.log("Fetch status:", res.status);
-    console.log("Content preview:", text.slice(0, 80));
-
-    return null;
-  } catch (e) {
-    console.log("Puzzle fetch error:", e.message);
-    return null;
-  }
+  console.log("No real puzzle API connected yet.");
+  return null;
 }
-}
+
+process.on("uncaughtException", (e) => console.log("Uncaught:", e.message));
+process.on("unhandledRejection", (e) => console.log("Unhandled:", e.message));
+
 async function mainLoop() {
   console.log("Crypto solver online.");
   console.log("Railway sẽ luôn Active.");
 
   while (true) {
     try {
-      const question = await getPuzzle();
+      const puzzle = await getPuzzle();
 
-if (!question) {
-  console.log("No puzzle.");
-  continue;
-}
+      if (!puzzle) {
+        const test = "What is the BIP for hierarchical deterministic wallets?";
+        const answers = await solve(test);
 
-const answers = await solve(question);
-
-console.log("Question:", question);
-console.log("Answers:", answers);
+        console.log("Alive:", new Date().toISOString());
+        console.log("Test:", test);
+        console.log("Answers:", answers);
+      }
     } catch (e) {
       console.log("Loop error:", e.message);
     }
