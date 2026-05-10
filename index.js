@@ -26,15 +26,11 @@ function sleep(ms) {
 }
 
 function clean(answer) {
-  return String(answer)
-    .trim()
-    .replace(/\s+/g, " ");
+  return String(answer).trim().replace(/\s+/g, " ");
 }
 
 function submitClean(answer) {
-  return String(answer)
-    .trim()
-    .replace(/^0x/i, "");
+  return String(answer).trim().replace(/^0x/i, "");
 }
 
 function reverseBitsToHex(prompt) {
@@ -46,23 +42,33 @@ function reverseBitsToHex(prompt) {
   return parseInt(reversed, 2).toString(16);
 }
 
-function ruleSolve(prompt) {
+function ruleAnswers(prompt) {
   const p = prompt.toLowerCase();
 
   if (p.includes("reverse the bits")) {
-    return reverseBitsToHex(prompt);
+    const ans = reverseBitsToHex(prompt);
+    return ans ? [ans, "0x" + ans] : [];
   }
 
-  if (p.includes("shor")) return "rsa";
-  if (p.includes("grover")) return "sqrt(n)";
-  if (p.includes("zk-snark") || p.includes("zk snark")) return "zero knowledge";
-  if (p.includes("hex value of decimal 255")) return "ff";
-  if (p.includes("max supply") && p.includes("bitcoin")) return "21000000";
-  if (p.includes("bitcoin whitepaper")) return "2008";
-  if (p.includes("sha-256") && p.includes("empty string")) return "e3b0c4";
-  if (p.includes("post-quantum signature") && p.includes("nist")) return "dilithium";
+  if (p.includes("hash function does bitcoin use")) {
+    return ["sha256", "sha-256", "double sha256", "double sha-256"];
+  }
 
-  return null;
+  if (p.includes("zk-snark") || p.includes("zk snark")) {
+    return ["zero knowledge", "zero-knowledge", "zk"];
+  }
+
+  if (p.includes("shor")) return ["rsa"];
+  if (p.includes("grover")) return ["sqrt(n)", "sqrt n", "square root n"];
+  if (p.includes("hex value of decimal 255")) return ["ff", "0xff"];
+  if (p.includes("max supply") && p.includes("bitcoin")) return ["21000000", "21 million"];
+  if (p.includes("bitcoin whitepaper")) return ["2008"];
+  if (p.includes("sha-256") && p.includes("empty string")) return ["e3b0c4"];
+  if (p.includes("post-quantum signature") && p.includes("nist")) {
+    return ["dilithium", "crystals-dilithium", "ml-dsa"];
+  }
+
+  return [];
 }
 
 async function askAI(prompt) {
@@ -70,7 +76,7 @@ async function askAI(prompt) {
     const completion = await groq.chat.completions.create({
       model: "llama-3.1-8b-instant",
       temperature: 0,
-      max_tokens: 25,
+      max_tokens: 30,
       messages: [
         {
           role: "system",
@@ -91,35 +97,93 @@ async function askAI(prompt) {
   }
 }
 
-function fixAIAnswer(prompt, aiAnswer) {
+function aiVariants(prompt, aiAnswer) {
   const p = prompt.toLowerCase();
   const a = clean(aiAnswer || "");
   const al = a.toLowerCase();
 
-  if (p.includes("zk-snark") || p.includes("zk snark")) return "zero knowledge";
-  if (p.includes("shor")) return "rsa";
-  if (p.includes("grover")) return "sqrt(n)";
+  const list = [];
 
+  if (a) list.push(a);
+  if (al) list.push(al);
+
+  if (al.includes("double sha")) list.push("sha256", "sha-256", "double sha256", "double sha-256");
+  if (al.includes("sha-256") || al.includes("sha256")) list.push("sha256", "sha-256");
   if (al.includes("zero knowledge") || al.includes("zero-knowledge")) {
-    return "zero knowledge";
+    list.push("zero knowledge", "zero-knowledge", "zk");
+  }
+  if (al.includes("rsa")) list.push("rsa");
+  if (al.includes("sqrt")) list.push("sqrt(n)", "sqrt n");
+  if (al.includes("21 million")) list.push("21000000");
+
+  if (p.includes("zk-snark")) list.push("zero knowledge", "zero-knowledge", "zk");
+  if (p.includes("bitcoin") && p.includes("block headers")) {
+    list.push("sha256", "sha-256", "double sha256", "double sha-256");
   }
 
-  if (al.includes("rsa")) return "rsa";
-  if (al.includes("21 million") || al.includes("21000000")) return "21000000";
-  if (al.includes("sqrt")) return "sqrt(n)";
-  if (al.includes("dilithium")) return "dilithium";
-
-  return a;
+  return list;
 }
 
-async function solvePuzzle(prompt) {
-  const rule = ruleSolve(prompt);
-  if (rule) return rule;
+function unique(list) {
+  return [...new Set(list.filter(Boolean).map(submitClean))];
+}
 
-  const aiAnswer = await askAI(prompt);
+async function getPuzzle() {
+  const res = await axios.get(`${API}?eth=${WALLET}`, { headers });
+  return res.data?.puzzle || null;
+}
+
+async function submitAnswer(puzzle, answer) {
+  const final = submitClean(answer);
+
+  console.log("Trying Answer:", final);
+
+  const res = await axios.post(
+    API,
+    {
+      eth_address: WALLET,
+      agent_name: AGENT,
+      puzzle_id: puzzle.id,
+      answer: final,
+    },
+    { headers }
+  );
+
+  console.log("Result:", res.data);
+  return res.data;
+}
+
+async function solveAndSubmit(puzzle) {
+  const ruleList = ruleAnswers(puzzle.prompt);
+  const aiAnswer = await askAI(puzzle.prompt);
+
   console.log("AI Answer:", aiAnswer);
 
-  return fixAIAnswer(prompt, aiAnswer);
+  const answers = unique([
+    ...ruleList,
+    ...aiVariants(puzzle.prompt, aiAnswer),
+  ]);
+
+  console.log("Candidates:", answers);
+
+  for (const ans of answers) {
+    try {
+      const result = await submitAnswer(puzzle, ans);
+
+      if (result?.correct === true) {
+        console.log("SUCCESS:", ans);
+        return true;
+      }
+
+      await sleep(1500);
+    } catch (err) {
+      console.log("Submit error:", err.response?.data || err.message);
+      await sleep(3000);
+    }
+  }
+
+  console.log("All candidates failed.");
+  return false;
 }
 
 async function main() {
@@ -129,10 +193,9 @@ async function main() {
 
   while (true) {
     try {
-      console.log("Fetching puzzle...");
+      console.log("\nFetching puzzle...");
 
-      const res = await axios.get(`${API}?eth=${WALLET}`, { headers });
-      const puzzle = res.data?.puzzle;
+      const puzzle = await getPuzzle();
 
       if (!puzzle) {
         console.log("No puzzle found");
@@ -144,23 +207,7 @@ async function main() {
       console.log("Category:", puzzle.category);
       console.log("Prompt:", puzzle.prompt);
 
-      const answer = await solvePuzzle(puzzle.prompt);
-      const final = submitClean(answer);
-
-      console.log("Submit Answer:", final);
-
-      const submit = await axios.post(
-        API,
-        {
-          eth_address: WALLET,
-          agent_name: AGENT,
-          puzzle_id: puzzle.id,
-          answer: final,
-        },
-        { headers }
-      );
-
-      console.log("Result:", submit.data);
+      await solveAndSubmit(puzzle);
 
       await sleep(5000);
     } catch (err) {
