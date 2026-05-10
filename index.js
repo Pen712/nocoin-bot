@@ -137,11 +137,36 @@ async function solve(q) {
 console.log("Crypto solver online.");
 console.log("Railway sẽ luôn Active.");
 
-setInterval(async () => {
-  const testQuestion = "What is the BIP for hierarchical deterministic wallets?";
-  const answers = await solve(testQuestion);
+const LOOP_DELAY = 5000;
 
-  console.log("Alive:", new Date().toISOString());
-  console.log("Test:", testQuestion);
-  console.log("Answers:", answers);
-}, 30000);
+process.on("uncaughtException", (e) => {
+  console.log("Uncaught:", e.message);
+});
+
+process.on("unhandledRejection", (e) => {
+  console.log("Unhandled:", e.message);
+});
+
+async function mainLoop() {
+  console.log("Crypto solver online.");
+  console.log("Railway sẽ luôn Active.");
+
+  while (true) {
+    try {
+      const testQuestion =
+        "What is the BIP for hierarchical deterministic wallets?";
+
+      const answers = await solve(testQuestion);
+
+      console.log("Alive:", new Date().toISOString());
+      console.log("Test:", testQuestion);
+      console.log("Answers:", answers);
+    } catch (e) {
+      console.log("Loop error:", e.message);
+    }
+
+    await new Promise((r) => setTimeout(r, LOOP_DELAY));
+  }
+}
+
+mainLoop();
