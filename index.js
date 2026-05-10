@@ -148,16 +148,18 @@ process.on("unhandledRejection", (e) => {
 });
 async function getPuzzle() {
   try {
-    const res = await fetch("https://nocoin.live/api/puzzle");
+    const res = await fetch("https://nocoin.live/play");
+    const text = await res.text();
 
-    if (!res.ok) return null;
+    console.log("Fetch status:", res.status);
+    console.log("Content preview:", text.slice(0, 80));
 
-    const data = await res.json();
-
-    return data.question || null;
+    return null;
   } catch (e) {
     console.log("Puzzle fetch error:", e.message);
     return null;
+  }
+}
   }
 }
 async function mainLoop() {
