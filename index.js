@@ -26,57 +26,54 @@ function sleep(ms) {
 }
 
 function clean(answer) {
-  return String(answer).toLowerCase().trim().replace(/\s+/g, " ");
+  return String(answer).trim().replace(/\s+/g, " ");
+}
+
+function cleanForSubmit(answer) {
+  return String(answer).replace(/^0x/i, "").trim();
+}
+
+function reverseBitsToHex(binaryText) {
+  const bits = binaryText.replace("0b", "").trim();
+  const reversed = bits.split("").reverse().join("");
+  return parseInt(reversed, 2).toString(16);
 }
 
 function finalAnswer(prompt, aiAnswer) {
   const p = prompt.toLowerCase();
   const a = clean(aiAnswer || "");
+  const al = a.toLowerCase();
 
-  // reverse bits
   if (p.includes("reverse the bits")) {
-    const match = p.match(/0b([01]+)/);
-
-    if (match) {
-      const reversed = match[1].split("").reverse().join("");
-      return parseInt(reversed, 2).toString(16);
-    }
+    const match = prompt.match(/0b[01]+/i);
+    if (match) return reverseBitsToHex(match[0]);
   }
 
-  // hardcoded answers
+  if (p.includes("zk-snark") || p.includes("zk snark")) {
+    return "Zero-Knowledge";
+  }
+
   if (p.includes("shor")) return "rsa";
-
   if (p.includes("grover")) return "sqrt(n)";
-
-  if (p.includes("max supply") && p.includes("bitcoin"))
-    return "21000000";
-
+  if (p.includes("max supply") && p.includes("bitcoin")) return "21000000";
   if (p.includes("bitcoin whitepaper")) return "2008";
 
-  if (
-    p.includes("post-quantum signature") &&
-    p.includes("nist")
-  )
+  if (p.includes("post-quantum signature") && p.includes("nist")) {
     return "dilithium";
+  }
 
-  if (
-    p.includes("sha-256") &&
-    p.includes("empty string")
-  )
+  if (p.includes("sha-256") && p.includes("empty string")) {
     return "e3b0c4";
+  }
 
-  // AI cleanup
-  if (a.includes("rsa")) return "rsa";
+  if (al.includes("zero-knowledge") || al.includes("zero knowledge")) {
+    return "Zero-Knowledge";
+  }
 
-  if (
-    a.includes("21000000") ||
-    a.includes("21 million")
-  )
-    return "21000000";
-
-  if (a.includes("sqrt")) return "sqrt(n)";
-
-  if (a.includes("dilithium")) return "dilithium";
+  if (al.includes("rsa")) return "rsa";
+  if (al.includes("21000000") || al.includes("21 million")) return "21000000";
+  if (al.includes("sqrt")) return "sqrt(n)";
+  if (al.includes("dilithium")) return "dilithium";
 
   return a;
 }
@@ -87,7 +84,7 @@ async function solveWithAI(prompt) {
       {
         role: "system",
         content:
-          "Answer with ONLY the final answer. No explanation. Examples: rsa, 2008, sqrt(n), 21000000, 4d",
+          "Answer with ONLY the final answer. No explanation. Examples: rsa, 2008, sqrt(n), 21000000, 4d, Zero-Knowledge",
       },
       {
         role: "user",
@@ -111,11 +108,7 @@ async function main() {
     try {
       console.log("Fetching puzzle...");
 
-      const res = await axios.get(
-        `${API}?eth=${WALLET}`,
-        { headers }
-      );
-
+      const res = await axios.get(`${API}?eth=${WALLET}`, { headers });
       const puzzle = res.data?.puzzle;
 
       if (!puzzle) {
@@ -128,17 +121,12 @@ async function main() {
       console.log("Category:", puzzle.category);
       console.log("Prompt:", puzzle.prompt);
 
-      const aiAnswer = await solveWithAI(
-        puzzle.prompt
-      );
-
-      const answer = finalAnswer(
-        puzzle.prompt,
-        aiAnswer
-      );
+      const aiAnswer = await solveWithAI(puzzle.prompt);
+      const answer = finalAnswer(puzzle.prompt, aiAnswer);
+      const submitAnswer = cleanForSubmit(answer);
 
       console.log("AI Answer:", aiAnswer);
-      console.log("Submit Answer:", answer);
+      console.log("Submit Answer:", submitAnswer);
 
       const submit = await axios.post(
         API,
@@ -146,7 +134,7 @@ async function main() {
           eth_address: WALLET,
           agent_name: AGENT,
           puzzle_id: puzzle.id,
-          answer: clean(answer),
+          answer: submitAnswer,
         },
         { headers }
       );
@@ -155,11 +143,7 @@ async function main() {
 
       await sleep(5000);
     } catch (err) {
-      console.log(
-        "ERROR:",
-        err.response?.data || err.message
-      );
-
+      console.log("ERROR:", err.response?.data || err.message);
       await sleep(10000);
     }
   }
