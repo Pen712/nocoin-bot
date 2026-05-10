@@ -160,8 +160,6 @@ async function getPuzzle() {
     return null;
   }
 }
-  }
-}
 async function mainLoop() {
   console.log("Crypto solver online.");
   console.log("Railway sẽ luôn Active.");
