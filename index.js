@@ -146,7 +146,20 @@ process.on("uncaughtException", (e) => {
 process.on("unhandledRejection", (e) => {
   console.log("Unhandled:", e.message);
 });
+async function getPuzzle() {
+  try {
+    const res = await fetch("https://nocoin.live/api/puzzle");
 
+    if (!res.ok) return null;
+
+    const data = await res.json();
+
+    return data.question || null;
+  } catch (e) {
+    console.log("Puzzle fetch error:", e.message);
+    return null;
+  }
+}
 async function mainLoop() {
   console.log("Crypto solver online.");
   console.log("Railway sẽ luôn Active.");
