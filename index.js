@@ -11,7 +11,7 @@ const API =
   "https://bqrapnlqqtjedjyhlfci.supabase.co/functions/v1/submit-solution";
 
 const API_KEY =
-  "YOUR_API_KEY";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxcmFwbmxxcXRqZWRqeWhsZmNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNzUyNjQsImV4cCI6MjA5Mzg1MTI2NH0.mf0fz6kAnK0yeAXrb-XT6yikbdRmeAq5jsikVPPhaFE";
 
 const WALLET = "0xEB9E8A1114a971d452416D799dBa631629E8c85b";
 const AGENT = "Pen";
@@ -31,18 +31,51 @@ function clean(answer) {
 
 function finalAnswer(prompt, aiAnswer) {
   const p = prompt.toLowerCase();
-  const a = clean(aiAnswer);
+  const a = clean(aiAnswer || "");
 
+  // reverse bits
+  if (p.includes("reverse the bits")) {
+    const match = p.match(/0b([01]+)/);
+
+    if (match) {
+      const reversed = match[1].split("").reverse().join("");
+      return parseInt(reversed, 2).toString(16);
+    }
+  }
+
+  // hardcoded answers
   if (p.includes("shor")) return "rsa";
-  if (p.includes("grover")) return "sqrt(n)";
-  if (p.includes("max supply") && p.includes("bitcoin")) return "21000000";
-  if (p.includes("bitcoin whitepaper")) return "2008";
-  if (p.includes("post-quantum signature") && p.includes("nist")) return "dilithium";
-  if (p.includes("sha-256") && p.includes("empty string")) return "e3b0c4";
 
+  if (p.includes("grover")) return "sqrt(n)";
+
+  if (p.includes("max supply") && p.includes("bitcoin"))
+    return "21000000";
+
+  if (p.includes("bitcoin whitepaper")) return "2008";
+
+  if (
+    p.includes("post-quantum signature") &&
+    p.includes("nist")
+  )
+    return "dilithium";
+
+  if (
+    p.includes("sha-256") &&
+    p.includes("empty string")
+  )
+    return "e3b0c4";
+
+  // AI cleanup
   if (a.includes("rsa")) return "rsa";
-  if (a.includes("21000000") || a.includes("21 million")) return "21000000";
+
+  if (
+    a.includes("21000000") ||
+    a.includes("21 million")
+  )
+    return "21000000";
+
   if (a.includes("sqrt")) return "sqrt(n)";
+
   if (a.includes("dilithium")) return "dilithium";
 
   return a;
@@ -54,7 +87,7 @@ async function solveWithAI(prompt) {
       {
         role: "system",
         content:
-          "Answer with ONLY the final answer. No sentence. No explanation. Example: rsa, 2008, sqrt(n), 21000000",
+          "Answer with ONLY the final answer. No explanation. Examples: rsa, 2008, sqrt(n), 21000000, 4d",
       },
       {
         role: "user",
@@ -78,7 +111,11 @@ async function main() {
     try {
       console.log("Fetching puzzle...");
 
-      const res = await axios.get(`${API}?eth=${WALLET}`, { headers });
+      const res = await axios.get(
+        `${API}?eth=${WALLET}`,
+        { headers }
+      );
+
       const puzzle = res.data?.puzzle;
 
       if (!puzzle) {
@@ -91,8 +128,14 @@ async function main() {
       console.log("Category:", puzzle.category);
       console.log("Prompt:", puzzle.prompt);
 
-      const aiAnswer = await solveWithAI(puzzle.prompt);
-      const answer = finalAnswer(puzzle.prompt, aiAnswer);
+      const aiAnswer = await solveWithAI(
+        puzzle.prompt
+      );
+
+      const answer = finalAnswer(
+        puzzle.prompt,
+        aiAnswer
+      );
 
       console.log("AI Answer:", aiAnswer);
       console.log("Submit Answer:", answer);
@@ -112,7 +155,11 @@ async function main() {
 
       await sleep(5000);
     } catch (err) {
-      console.log("ERROR:", err.response?.data || err.message);
+      console.log(
+        "ERROR:",
+        err.response?.data || err.message
+      );
+
       await sleep(10000);
     }
   }
