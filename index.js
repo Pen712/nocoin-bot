@@ -153,14 +153,17 @@ async function mainLoop() {
 
   while (true) {
     try {
-      const testQuestion =
-        "What is the BIP for hierarchical deterministic wallets?";
+      const question = await getPuzzle();
 
-      const answers = await solve(testQuestion);
+if (!question) {
+  console.log("No puzzle.");
+  continue;
+}
 
-      console.log("Alive:", new Date().toISOString());
-      console.log("Test:", testQuestion);
-      console.log("Answers:", answers);
+const answers = await solve(question);
+
+console.log("Question:", question);
+console.log("Answers:", answers);
     } catch (e) {
       console.log("Loop error:", e.message);
     }
