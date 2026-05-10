@@ -134,7 +134,7 @@ async function solve(q) {
 
 async function getPuzzle() {
   try {
-    const res = await fetch("LINK_API_PUZZLE");
+    const res = await fetch("https://abc.com/api/puzzle");
 
     const text = await res.text();
 
